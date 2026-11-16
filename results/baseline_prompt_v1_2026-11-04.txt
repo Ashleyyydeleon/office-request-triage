@@ -1,0 +1,124 @@
+BASELINE EVAL RUN - prompt v1 - 2026-11-04
+Model: claude-haiku-4-5-20251001 | 50 cases from data/eval_cases.csv
+Prompt v1 = original prompt + the one-line "Unclear" rule.
+
+Note: this is terminal output pasted back by hand. This run's
+eval_results.csv was overwritten by a later failed run (bad API key), so the
+per-case CSV for this run no longer exists. eval_triage.py now saves a new,
+timestamped file each run so this can't happen again.
+In this older output, "[ok ]" only means the CATEGORY was right; urgency
+misses are listed in the Misses section.
+
+Quick analysis:
+- 5 of 6 category misses were real requests wrongly labeled "Unclear"
+  (#7, #21, #38, #39, #42): the v1 Unclear rule was too broad and "Other"
+  was never described. The 6th (#35 microwave: Kitchen vs Facilities) is a
+  debatable label.
+- 14 of 15 urgency misses were exactly one level too HIGH; v1 only defined
+  "high", never medium or low.
+
+------------------------------------------------------------------------
+[ok ] # 1 expected Visitors/high  got Visitors/high
+[ok ] # 2 expected Visitors/low  got Visitors/medium
+[ok ] # 3 expected Visitors/high  got Visitors/high
+[ok ] # 4 expected Visitors/low  got Visitors/low
+[ok ] # 5 expected Visitors/high  got Visitors/high
+[ok ] # 6 expected Visitors/low  got Visitors/medium
+[MISS] # 7 expected Visitors/medium  got Unclear/low
+[ok ] # 8 expected Rooms & Desks/high  got Rooms & Desks/high
+[ok ] # 9 expected Rooms & Desks/medium  got Rooms & Desks/high
+[ok ] #10 expected Rooms & Desks/low  got Rooms & Desks/low
+[ok ] #11 expected Rooms & Desks/medium  got Rooms & Desks/high
+[ok ] #12 expected Rooms & Desks/high  got Rooms & Desks/high
+[ok ] #13 expected Rooms & Desks/low  got Rooms & Desks/low
+[ok ] #14 expected Rooms & Desks/low  got Rooms & Desks/low
+[ok ] #15 expected Deliveries/medium  got Deliveries/medium
+[ok ] #16 expected Deliveries/high  got Deliveries/high
+[ok ] #17 expected Deliveries/low  got Deliveries/low
+[ok ] #18 expected Deliveries/medium  got Deliveries/medium
+[ok ] #19 expected Deliveries/low  got Deliveries/low
+[ok ] #20 expected Deliveries/low  got Deliveries/medium
+[MISS] #21 expected Deliveries/low  got Unclear/low
+[ok ] #22 expected Facilities/high  got Facilities/high
+[ok ] #23 expected Facilities/medium  got Facilities/high
+[ok ] #24 expected Facilities/low  got Facilities/medium
+[ok ] #25 expected Facilities/high  got Facilities/high
+[ok ] #26 expected Facilities/high  got Facilities/high
+[ok ] #27 expected Facilities/low  got Facilities/medium
+[ok ] #28 expected Facilities/high  got Facilities/high
+[ok ] #29 expected Facilities/medium  got Facilities/high
+[ok ] #30 expected Facilities/low  got Facilities/medium
+[ok ] #31 expected Kitchen/low  got Kitchen/low
+[ok ] #32 expected Kitchen/low  got Kitchen/medium
+[ok ] #33 expected Kitchen/low  got Kitchen/medium
+[ok ] #34 expected Kitchen/low  got Kitchen/medium
+[MISS] #35 expected Kitchen/high  got Facilities/high
+[ok ] #36 expected Kitchen/low  got Kitchen/low
+[ok ] #37 expected Kitchen/medium  got Kitchen/high
+[MISS] #38 expected Other/low  got Unclear/low
+[MISS] #39 expected Other/low  got Unclear/low
+[ok ] #40 expected Other/medium  got Other/medium
+[ok ] #41 expected Other/low  got Other/low
+[MISS] #42 expected Other/low  got Unclear/low
+[ok ] #43 expected Other/medium  got Other/medium
+[ok ] #44 expected Unclear/-  got Unclear/low
+[ok ] #45 expected Unclear/-  got Unclear/low
+[ok ] #46 expected Unclear/-  got Unclear/low
+[ok ] #47 expected Unclear/-  got Unclear/low
+[ok ] #48 expected Unclear/-  got Unclear/low
+[ok ] #49 expected Unclear/-  got Unclear/low
+[ok ] #50 expected Unclear/-  got Unclear/low
+
+=== Results ===
+Cases:                     50
+Category accuracy:         88%
+Urgency accuracy:          65%  (on 43 cases with an expected urgency)
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           5 of 43 real requests wrongly sent to a human
+Flagged for human review:  12 of 50
+Errors:                    0
+Latency (seconds):         average 0.87, median 0.84, 95th percentile 1.03
+Tokens:                    8305 in, 1995 out
+Cost:                      $0.0183 total, $0.00037 per request
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#2: "How do I pre-register a visitor for Thursday's interview?"
+    expected Visitors/low, got Visitors/medium - Visitor pre-registration request for scheduled event
+#6: "Please add Dana Lee to the approved guest list for next week"
+    expected Visitors/low, got Visitors/medium - Guest list update needed for next week
+#7: "The visitor NDA form is not loading on the tablet"
+    expected Visitors/medium, got Unclear/low - This is an IT/technical issue with a digital form, not an office operations request for visitors, rooms, deliveries, facilities, or kitchen services
+#9: "The desk I reserved has no monitor"
+    expected Rooms & Desks/medium, got Rooms & Desks/high - Employee cannot work without essential equipment
+#11: "The room booking for tomorrow's board meeting disappeared from the calendar"
+    expected Rooms & Desks/medium, got Rooms & Desks/high - Meeting is scheduled for tomorrow and the room booking is missing, blocking the event from proceeding
+#20: "A package arrived for someone who left the company last month"
+    expected Deliveries/low, got Deliveries/medium - Package for former employee needs to be identified, stored, or returned
+#21: "I'm returning an online order. Where do I drop it off?"
+    expected Deliveries/low, got Unclear/low - Personal errand unrelated to workplace office operations
+#23: "The 5th floor thermostat is stuck at 85 degrees"
+    expected Facilities/medium, got Facilities/high - Temperature safety risk - 85 degrees is dangerously hot and affects worker comfort and health
+#24: "A light is flickering in the hallway"
+    expected Facilities/low, got Facilities/medium - Flickering light is a maintenance issue but not an immediate safety risk unless it creates a hazard
+#27: "The restroom on 2 is out of paper towels"
+    expected Facilities/low, got Facilities/medium - Restroom supply shortage affecting hygiene
+#29: "The badge reader on the server room door is not working"
+    expected Facilities/medium, got Facilities/high - Security access issue - people may be blocked from entering server room
+#30: "Fire alarm testing is super loud. Is it happening all week?"
+    expected Facilities/low, got Facilities/medium - Fire alarm testing causing noise disruption; employee seeking information about schedule
+#32: "The coffee machine on 3 is broken"
+    expected Kitchen/low, got Kitchen/medium - Coffee machine malfunction affects team comfort and productivity
+#33: "Someone left food in the fridge for weeks and it smells"
+    expected Kitchen/low, got Kitchen/medium - Old food causing odor issue that needs cleanup to maintain hygiene standards
+#34: "Can we get allergy-friendly snacks for Friday's all-hands?"
+    expected Kitchen/low, got Kitchen/medium - Request for allergy-friendly snacks for upcoming all-hands meeting
+#35: "The microwave sparked and smoke is coming out of it"
+    expected Kitchen/high, got Facilities/high - Safety risk - electrical fire hazard from malfunctioning microwave
+#37: "The kitchen sink is clogged"
+    expected Kitchen/medium, got Kitchen/high - Clogged sink blocks essential kitchen functionality and hygiene
+#38: "When is the next all-hands meeting?"
+    expected Other/low, got Unclear/low - This is a question about company events/scheduling, not an office request requiring triage action
+#39: "Where can I find the employee handbook?"
+    expected Other/low, got Unclear/low - Request is about information/documentation, not a workplace office request requiring triage action
+#42: "Is the office open on the holiday Monday?"
+    expected Other/low, got Unclear/low - This is a general policy question, not a specific actionable office request for visitors, rooms, deliveries, facilities, or kitchen services.

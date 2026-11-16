@@ -1,0 +1,11 @@
+id,message,category,urgency,reason,status
+1,The badge printer at the front desk is jammed and three visitors are waiting,Facilities,high,Visitors blocked from entry due to non-functional badge printer,ok
+3,I booked Room Everest for 2pm but someone is in there and won't leave,Rooms & Desks,high,Room booking conflict blocking immediate use and access,ok
+5,There's water leaking from the ceiling near the east stairwell,Facilities,high,"Water leak poses safety risk (slip hazard, electrical hazard, structural damage)",ok
+9,toilet on fire; nonsense test,Facilities,high,Fire is an immediate safety risk requiring urgent response,ok
+4,My package from Amazon says delivered but it's not in the mailroom,Deliveries,medium,Package missing from mailroom - needs investigation but not an immediate safety issue,ok
+6,How do I invite a guest for tomorrow's customer meeting?,Visitors,medium,Guest invitation needed for scheduled meeting tomorrow,ok
+7,The desk I reserved has no monitor,Rooms & Desks,medium,Employee cannot work at reserved desk without monitor,ok
+8,"Fire alarm testing is super loud, is it happening all week?",Facilities,medium,"Noise concern from fire alarm testing affecting work environment, needs scheduling clarification",ok
+2,Can we get more oat milk in the 4th floor kitchen?,Kitchen,low,Stock replenishment request with no time constraint or blocking issue,ok
+10,asdf,Unclear,low,Request content is unintelligible and provides no actionable information,needs_review

@@ -1,0 +1,47 @@
+=== Results ===
+Prompt version:            v2
+Model:                     claude-haiku-4-5-20251001
+Cases:                     50
+Category accuracy:         96%
+Urgency accuracy:          67%  (on 43 cases with an expected urgency)
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 43 real requests wrongly sent to a human
+Flagged for human review:  7 of 50
+Errors:                    0
+Latency (seconds):         average 0.93, median 0.91, 95th percentile 1.12
+Tokens:                    16855 in, 2032 out
+Cost:                      $0.0270 total, $0.00054 per request
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#2: "How do I pre-register a visitor for Thursday's interview?"
+    expected Visitors/low, got Visitors/medium - visitor registration request for a scheduled event
+#6: "Please add Dana Lee to the approved guest list for next week"
+    expected Visitors/low, got Visitors/medium - Guest list addition for future visit affects check-in process but is not time-sensitive
+#10: "Can we add a whiteboard to the small conference room on 3?"
+    expected Rooms & Desks/low, got Rooms & Desks/medium - Request to add equipment to a meeting room for improved functionality
+#14: "Our team wants to sit together on the 4th floor next month. Who do we ask?"
+    expected Rooms & Desks/low, got Rooms & Desks/medium - team seating/desk booking request for future date
+#17: "Can packages be sent to my home address instead?"
+    expected Deliveries/low, got Deliveries/medium - Policy question about package delivery address options
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - question about mailroom operating hours and schedule information
+#20: "A package arrived for someone who left the company last month"
+    expected Deliveries/low, got Deliveries/medium - Package for departed employee needs to be identified, stored, or returned; should be handled promptly but not urgent
+#23: "The 5th floor thermostat is stuck at 85 degrees"
+    expected Facilities/medium, got Facilities/high - Temperature control failure affecting comfort and potentially health/safety of occupants on 5th floor
+#24: "A light is flickering in the hallway"
+    expected Facilities/low, got Facilities/medium - Flickering light is a minor maintenance issue that should be addressed promptly but is not an immediate safety hazard or work blocker
+#27: "The restroom on 2 is out of paper towels"
+    expected Facilities/low, got Facilities/medium - restroom supply issue affecting employee comfort and hygiene, needs prompt restocking but not an immediate safety risk
+#29: "The badge reader on the server room door is not working"
+    expected Facilities/medium, got Facilities/high - Badge reader failure blocks access to server room, preventing work and creating a security issue
+#30: "Fire alarm testing is super loud. Is it happening all week?"
+    expected Facilities/low, got Facilities/medium - Question about scheduled building maintenance/safety testing affecting workplace comfort
+#32: "The coffee machine on 3 is broken"
+    expected Kitchen/low, got Kitchen/medium - Broken appliance affects team comfort and work breaks, but not a safety risk or work blocker
+#33: "Someone left food in the fridge for weeks and it smells"
+    expected Kitchen/low, got Kitchen/medium - Food spoilage creates unpleasant conditions and potential hygiene issues, but is not an immediate safety hazard
+#34: "Can we get allergy-friendly snacks for Friday's all-hands?"
+    expected Kitchen/low, got Kitchen/medium - Request for allergy-friendly snacks for an upcoming event; needs coordination but not immediately urgent
+#35: "The microwave sparked and smoke is coming out of it"
+    expected Kitchen/high, got Facilities/high - Fire hazard - microwave malfunction with sparking and smoke poses immediate safety risk
