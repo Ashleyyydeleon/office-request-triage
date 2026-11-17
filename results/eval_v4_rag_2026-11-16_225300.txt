@@ -1,0 +1,69 @@
+=== Results (all cases) ===
+Prompt version:            v4
+RAG:                       on (top 2 policies added)
+Model:                     claude-haiku-4-5-20251001
+Cases:                     63  (data/eval_cases.csv)
+Category accuracy:         81%
+Urgency accuracy:          95%  (on 56 cases with an expected urgency)
+Emergencies caught:        20 of 20 high-urgency cases rated high
+Over-escalated to high:    0 medium/low cases rated high
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 56 real requests wrongly sent to a human
+Flagged for human review:  7 of 63
+Errors:                    0
+Latency (seconds):         average 0.84, median 0.80, 95th percentile 1.07
+Tokens:                    64173 in, 2921 out
+Cost:                      $0.0788 total, $0.00125 per request
+Emergency policy first:    15 cases had a danger word
+No-related-policy flag:    5 of 7 meaningless inputs, 0 of 56 real requests
+
+=== By set ===
+original (50 cases): category 88%, urgency 95%, emergencies caught 11 of 11, over-escalated 0
+extra (13 cases): category 54%, urgency 92%, emergencies caught 9 of 9, over-escalated 0
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#8: "Someone is in Room Everest and won't leave and I booked it for 2pm"
+    expected Rooms & Desks/high, got Safety & Security/high - Unknown person refusing to leave a booked room is a potential security threat requiring immediate intervention
+    policies used: rooms_and_desks; emergencies_and_safety
+#18: "I'm expecting a courier at 3pm. Who signs for it?"
+    expected Deliveries/medium, got Deliveries/low - Routine question about courier procedure; not time-sensitive or blocking work
+    policies used: mailroom_and_deliveries; visitors_and_front_desk
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - Question about mailroom hours; employee needs to check the intranet or mailroom door for updated schedule
+    policies used: office_hours_hr_and_general; mailroom_and_deliveries
+#25: "There's a strong smell of gas near the loading dock"
+    expected Facilities/high, got Safety & Security/high - Gas smell is an emergency. Leave the area immediately, do not switch lights or devices on/off, call 911 and security desk.
+    policies used: emergencies_and_safety; kitchen_and_pantry
+#26: "The elevator is stuck between floors with someone inside"
+    expected Facilities/high, got Safety & Security/high - Person trapped in elevator is a life-safety emergency requiring immediate response
+    policies used: emergencies_and_safety; building_and_facilities
+#30: "Fire alarm testing is super loud. Is it happening all week?"
+    expected Facilities/low, got Other/low - Question about a scheduled fire alarm test, not an emergency or actual alarm activation
+    policies used: emergencies_and_safety; building_and_facilities
+#35: "The microwave sparked and smoke is coming out of it"
+    expected Kitchen/high, got Safety & Security/high - Appliance fire is an emergency: unplug if safe, pull fire alarm, evacuate via stairs, call 911
+    policies used: emergencies_and_safety; kitchen_and_pantry
+#43: "I lost my wallet somewhere on the 2nd floor"
+    expected Other/medium, got Other/low - Lost item request; not a workplace system or facility issue
+    policies used: mailroom_and_deliveries; kitchen_and_pantry
+#51: "The fire alarm is going off and I smell smoke on the 3rd floor"
+    expected Facilities/high, got Safety & Security/high - Fire alarm activated with smoke present - immediate life safety emergency
+    policies used: emergencies_and_safety; kitchen_and_pantry
+#55: "The toaster in the 5th floor kitchen is on fire"
+    expected Kitchen/high, got Safety & Security/high - Active appliance fire is a life-threatening emergency requiring immediate evacuation and 911 call
+    policies used: emergencies_and_safety; kitchen_and_pantry
+#56: "A delivery box in the mailroom is leaking some kind of chemical"
+    expected Deliveries/high, got Safety & Security/high - Leaking chemical is a hazardous material emergency requiring immediate response per safety procedures
+    policies used: emergencies_and_safety; mailroom_and_deliveries
+#57: "Our guest is locked inside the visitor lobby and can't get out"
+    expected Visitors/high, got Safety & Security/high - Person trapped in a locked space; call security immediately to release them
+    policies used: emergencies_and_safety; visitors_and_front_desk
+#60: "Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?"
+    expected Facilities/low, got Other/low - Question about a scheduled fire drill announced in advance; not an emergency
+    policies used: emergencies_and_safety; building_and_facilities
+#61: "The exit sign above the east stairwell door has a burnt-out bulb"
+    expected Facilities/medium, got Facilities/low - Failed exit-sign light is a small fix that must be completed within one business day for safety compliance, but poses no immediate risk
+    policies used: building_and_facilities; emergencies_and_safety
+#62: "Is there a first aid kit on the 5th floor?"
+    expected Facilities/low, got Other/low - Question about the location of a first aid kit; policy states these questions are low urgency. First aid kits are in every kitchen and next to every stairwell.
+    policies used: building_and_facilities; emergencies_and_safety

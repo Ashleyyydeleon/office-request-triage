@@ -1,40 +1,50 @@
 """
 Evaluation script for the Office Request Triage Tool
 ----------------------------------------------------
-Runs every case in data/eval_cases.csv through office_helper.classify() (the
-exact function the tool uses), compares the AI's answer to your expected
-labels, and reports accuracy, emergency catching, latency, tokens and cost.
+What it does:
+    Runs every test case through office_helper.classify() (the exact function
+    the tool uses), compares the AI's answer with your expected labels, and
+    reports accuracy, emergencies caught, latency, tokens and cost.
+    With --rag, the closest office policies are added to each prompt, and the
+    report lists which policies each case retrieved.
 
-Each run saves two NEW files in results/ (old runs are never overwritten):
-    eval_<prompt version>_<date>_<time>.csv   one row per case
-    eval_<prompt version>_<date>_<time>.txt   the summary printed below
+Input:   data/eval_cases.csv
+         columns: id, message, expected_category, expected_urgency, set
+Output:  two NEW files in results/ per run (old runs are never overwritten):
+             eval_<version>_<date>_<time>.csv       one row per case (RAG off)
+             eval_<version>_rag_<date>_<time>.csv   one row per case (RAG on)
+         plus a .txt file with the same name holding the printed summary.
 
-Run (inside the virtual environment, key typed in hidden):
+Run (inside the virtual environment, key typed in hidden). Leave out --rag
+for the "before RAG" score:
     source envoy_env/bin/activate
-    python -c "import getpass, os, runpy; os.environ['ANTHROPIC_API_KEY'] = getpass.getpass('API key: ').strip(); runpy.run_path('eval_triage.py', run_name='__main__')"
+    python -c "import getpass, os, runpy; os.environ['ANTHROPIC_API_KEY'] = getpass.getpass('API key: ').strip(); runpy.run_path('eval_triage.py', run_name='__main__')" --rag
 
 The expected labels are YOUR ground truth. Read through the case file and
 change any label you disagree with before you trust the scores.
 """
 
+import argparse
 import csv
-import json
 import statistics
 import sys
 import time
 from datetime import datetime
 
 import anthropic
+import chromadb
 
-import office_helper  # reuses classify(), PROMPT_VERSION, CATEGORIES, URGENCIES, folders
+import office_helper  # reuses classify(), review_reasons(), read_csv_rows(), settings
+import policy_search  # only for the name of the emergency policy, in the report
 
-# All test cases live in one file in data/. Its "set" column says where each
-# case came from, and scores are shown for all cases AND per set, so the
-# original 50 stay comparable with earlier runs.
+# All test cases live in one file. Its "set" column says where each case came
+# from; scores are shown for all cases AND per set, so the original 50 stay
+# comparable with earlier runs.
 #   original  the first 50 cases (v1 and v2 were scored on these)
 #   extra     13 cases added with v3: more emergency types, plus messages
 #             that SOUND urgent but aren't
 CASES_FILE = "eval_cases.csv"
+REQUIRED_COLUMNS = ["id", "message", "expected_category", "expected_urgency", "set"]
 
 # Prices in US dollars per million tokens. Check the current price for your
 # model on Anthropic's pricing page and edit these two numbers if they differ.
@@ -42,188 +52,248 @@ INPUT_PRICE_PER_MTOK = 1.00
 OUTPUT_PRICE_PER_MTOK = 5.00
 
 
-def run_case(client, message):
-    """Send one message through the real tool's classify(), with timing.
+def run_case(
+    client: anthropic.Anthropic,
+    message: str,
+    policy_index: chromadb.Collection | None,
+) -> tuple[dict, float, int, int, list[dict]]:
+    """Send one test message through the real tool's classify(), with timing.
 
-    We call office_helper.classify() instead of keeping a copy of the API
-    call here, so the eval always tests the tool exactly as it runs.
+    Returns: answer, seconds taken, input tokens, output tokens, policies used.
+    The time includes the policy search when RAG is on.
     """
     start = time.perf_counter()
-    result, usage = office_helper.classify(client, message)
+    answer, usage, policies = office_helper.classify(client, message, policy_index)
     seconds = time.perf_counter() - start
-    return result, seconds, usage.input_tokens, usage.output_tokens
+    return answer, seconds, usage.input_tokens, usage.output_tokens, policies
 
 
-def percentile(values, pct):
+def percentile(values: list[float], pct: float) -> float:
+    """The value below which pct% of the values fall (e.g. 95th percentile latency)."""
     values = sorted(values)
     index = max(0, min(len(values) - 1, round(pct / 100 * len(values)) - 1))
     return values[index]
 
 
-def accuracy(rows):
-    """Return (category accuracy, urgency accuracy, number of urgency-scored cases)."""
-    cat_acc = sum(r["category_correct"] for r in rows) / len(rows)
-    scored = [r for r in rows if r["urgency_correct"] != ""]
-    urg_acc = sum(r["urgency_correct"] for r in scored) / len(scored) if scored else 0
-    return cat_acc, urg_acc, len(scored)
+def accuracy(rows: list[dict]) -> tuple[float, float, int]:
+    """Return (category accuracy, urgency accuracy, number of urgency-scored cases).
+
+    Cases labeled Unclear have no expected urgency, so they're left out of
+    urgency accuracy.
+    """
+    category_accuracy = sum(row["category_correct"] for row in rows) / len(rows)
+    scored = [row for row in rows if row["urgency_correct"] != ""]
+    urgency_accuracy = sum(row["urgency_correct"] for row in scored) / len(scored) if scored else 0
+    return category_accuracy, urgency_accuracy, len(scored)
 
 
-def emergency_stats(rows):
+def emergency_stats(rows: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
     """The safety numbers.
 
-    caught: expected high AND the AI said high (we want ALL of these)
-    missed: expected high but the AI said lower (the dangerous mistake)
-    over:   expected medium/low but the AI said high (extra attention, not dangerous)
+    expected_high: cases you labeled high (we want the AI to catch ALL of these)
+    missed:        expected high but the AI said lower (the dangerous mistake)
+    over:          expected medium/low but the AI said high (extra work, not dangerous)
     """
-    expected_high = [r for r in rows if r["expected_urgency"] == "high"]
-    missed = [r for r in expected_high if r["urgency"] != "high"]
-    over = [r for r in rows if r["expected_urgency"] in ("medium", "low") and r["urgency"] == "high"]
+    expected_high = [row for row in rows if row["expected_urgency"] == "high"]
+    missed = [row for row in expected_high if row["urgency"] != "high"]
+    over = [row for row in rows
+            if row["expected_urgency"] in ("medium", "low") and row["urgency"] == "high"]
     return expected_high, missed, over
 
 
-def main():
-    client = office_helper.make_client()
+def score_case(case: dict, client: anthropic.Anthropic,
+               policy_index: chromadb.Collection | None) -> dict:
+    """Run one case and return a result row comparing the answer with the label."""
+    error = ""
+    answer = {}
+    seconds = 0.0
+    input_tokens = output_tokens = 0
+    policies = []
+    try:
+        answer, seconds, input_tokens, output_tokens, policies = run_case(
+            client, case["message"], policy_index)
+    except anthropic.AuthenticationError:
+        # A bad key fails every case. Stop now rather than report a fake 0%.
+        sys.exit("Stopped: the API key was rejected (401). Nothing was scored. "
+                 "Check the key and run again.")
+    except anthropic.APIError as api_error:
+        error = f"API error: {api_error}"
+    except (ValueError, KeyError, IndexError) as parse_error:
+        # The reply wasn't the JSON we asked for (ValueError includes JSON errors).
+        error = f"parse error: {parse_error}"
 
-    with open(office_helper.DATA_DIR / CASES_FILE, newline="", encoding="utf-8") as f:
-        cases = list(csv.DictReader(f))
+    category = answer.get("category", "")
+    urgency = answer.get("urgency", "")
+    # Same human-review rules as the real tool, plus any error.
+    reasons = [error] if error else office_helper.review_reasons(answer, policies)
+    expected_category = case["expected_category"]
+    expected_urgency = case["expected_urgency"]
 
-    print(f"Prompt {office_helper.PROMPT_VERSION}, model {office_helper.MODEL}, {len(cases)} cases\n")
+    return {
+        "set": case["set"],
+        "id": case["id"],
+        "message": case["message"],
+        "expected_category": expected_category,
+        "expected_urgency": expected_urgency,
+        "category": category,
+        "urgency": urgency,
+        "reason": answer.get("reason", ""),
+        "policies": office_helper.policy_names(policies),
+        "category_correct": category == expected_category,
+        # Urgency is only scored when the case has an expected urgency ("" = not scored).
+        "urgency_correct": (urgency == expected_urgency) if expected_urgency else "",
+        "flagged_for_human": bool(reasons),
+        "review_reason": "; ".join(reasons),
+        "seconds": round(seconds, 3),
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "error": error,
+    }
 
-    rows = []
-    for case in cases:
-        error = ""
-        category = urgency = reason = ""
-        seconds = 0.0
-        in_tok = out_tok = 0
-        try:
-            result, seconds, in_tok, out_tok = run_case(client, case["message"])
-            category = result.get("category", "")
-            urgency = result.get("urgency", "")
-            reason = result.get("reason", "")
-        except anthropic.AuthenticationError:
-            # A bad key fails every case. Stop now rather than report a fake 0%.
-            sys.exit("Stopped: the API key was rejected (401). Nothing was scored. "
-                     "Check the key and run again.")
-        except anthropic.APIError as e:
-            error = f"API error: {e}"
-        except (json.JSONDecodeError, KeyError, IndexError) as e:
-            error = f"parse error: {e}"
 
-        valid = category in office_helper.CATEGORIES and urgency in office_helper.URGENCIES
-        # A human sees this item if the answer is invalid or the AI said Unclear.
-        flagged = (not valid) or category == "Unclear" or bool(error)
+def case_mark(row: dict) -> str:
+    """Short label printed next to each case; "ok" only when category AND urgency are right."""
+    if row["error"]:
+        return "ERROR"
+    if row["expected_urgency"] == "high" and row["urgency"] != "high":
+        return "MISSED-HIGH"  # the most important kind of miss
+    if not row["category_correct"]:
+        return "MISS-CAT"
+    if row["urgency_correct"] is False:
+        return "MISS-URG"
+    return "ok"
 
-        expected_cat = case["expected_category"]
-        expected_urg = case["expected_urgency"]
-        cat_ok = category == expected_cat
-        # Urgency is only scored when a case has an expected urgency.
-        urg_ok = (urgency == expected_urg) if expected_urg else ""
-        rows.append({
-            "set": case["set"],
-            "id": case["id"],
-            "message": case["message"],
-            "expected_category": expected_cat,
-            "expected_urgency": expected_urg,
-            "category": category,
-            "urgency": urgency,
-            "reason": reason,
-            "category_correct": cat_ok,
-            "urgency_correct": urg_ok,
-            "flagged_for_human": flagged,
-            "seconds": round(seconds, 3),
-            "input_tokens": in_tok,
-            "output_tokens": out_tok,
-            "error": error,
-        })
-        # "ok" only when BOTH category and urgency are right.
-        if error:
-            mark = "ERROR"
-        elif expected_urg == "high" and urgency != "high":
-            mark = "MISSED-HIGH"  # the most important kind of miss
-        elif not cat_ok:
-            mark = "MISS-CAT"
-        elif urg_ok is False:
-            mark = "MISS-URG"
-        else:
-            mark = "ok"
-        print(f"[{mark:<11}] #{case['id']:>2} expected {expected_cat}/{expected_urg or '-'}"
-              f"  got {category}/{urgency}")
 
-    # ---- Scores ----
-    n = len(rows)
-    cat_acc, urg_acc, n_urg = accuracy(rows)
+def build_report(rows: list[dict], use_rag: bool) -> list[str]:
+    """Turn the result rows into summary lines, so they can be printed AND saved."""
+    total_cases = len(rows)
+    category_accuracy, urgency_accuracy, urgency_scored = accuracy(rows)
 
-    unclear_cases = [r for r in rows if r["expected_category"] == "Unclear"]
-    normal_cases = [r for r in rows if r["expected_category"] != "Unclear"]
-    caught = sum(r["category"] == "Unclear" for r in unclear_cases)
-    false_unclear = sum(r["category"] == "Unclear" for r in normal_cases)
+    unclear_cases = [row for row in rows if row["expected_category"] == "Unclear"]
+    real_requests = [row for row in rows if row["expected_category"] != "Unclear"]
+    unclear_caught = sum(row["category"] == "Unclear" for row in unclear_cases)
+    false_unclear = sum(row["category"] == "Unclear" for row in real_requests)
 
     expected_high, missed_high, over_high = emergency_stats(rows)
 
-    times = [r["seconds"] for r in rows if not r["error"]]
-    total_in = sum(r["input_tokens"] for r in rows)
-    total_out = sum(r["output_tokens"] for r in rows)
+    times = [row["seconds"] for row in rows if not row["error"]]
+    total_in = sum(row["input_tokens"] for row in rows)
+    total_out = sum(row["output_tokens"] for row in rows)
     total_cost = (total_in * INPUT_PRICE_PER_MTOK + total_out * OUTPUT_PRICE_PER_MTOK) / 1_000_000
-    errors = sum(bool(r["error"]) for r in rows)
+    errors = sum(bool(row["error"]) for row in rows)
 
-    # Build the summary as a list of lines so we can print it AND save it.
+    rag_text = f"on (top {office_helper.POLICIES_PER_REQUEST} policies added)" if use_rag else "off"
+    missed_ids = ", ".join("#" + row["id"] for row in missed_high)
+    over_ids = ", ".join("#" + row["id"] for row in over_high)
+
     report = [
         "=== Results (all cases) ===",
         f"Prompt version:            {office_helper.PROMPT_VERSION}",
+        f"RAG:                       {rag_text}",
         f"Model:                     {office_helper.MODEL}",
-        f"Cases:                     {n}  (data/{CASES_FILE})",
-        f"Category accuracy:         {cat_acc:.0%}",
-        f"Urgency accuracy:          {urg_acc:.0%}  (on {n_urg} cases with an expected urgency)",
+        f"Cases:                     {total_cases}  (data/{CASES_FILE})",
+        f"Category accuracy:         {category_accuracy:.0%}",
+        f"Urgency accuracy:          {urgency_accuracy:.0%}  (on {urgency_scored} cases with an expected urgency)",
         f"Emergencies caught:        {len(expected_high) - len(missed_high)} of {len(expected_high)} high-urgency cases rated high"
-        + (f"  MISSED: {', '.join('#' + r['id'] for r in missed_high)}" if missed_high else ""),
+        + (f"  MISSED: {missed_ids}" if missed_high else ""),
         f"Over-escalated to high:    {len(over_high)} medium/low cases rated high"
-        + (f"  ({', '.join('#' + r['id'] for r in over_high)})" if over_high else ""),
-        f"Unclear caught:            {caught} of {len(unclear_cases)} meaningless inputs sent to a human",
-        f"False 'Unclear':           {false_unclear} of {len(normal_cases)} real requests wrongly sent to a human",
-        f"Flagged for human review:  {sum(r['flagged_for_human'] for r in rows)} of {n}",
+        + (f"  ({over_ids})" if over_high else ""),
+        f"Unclear caught:            {unclear_caught} of {len(unclear_cases)} meaningless inputs sent to a human",
+        f"False 'Unclear':           {false_unclear} of {len(real_requests)} real requests wrongly sent to a human",
+        f"Flagged for human review:  {sum(row['flagged_for_human'] for row in rows)} of {total_cases}",
         f"Errors:                    {errors}",
     ]
     if times:
         report.append(f"Latency (seconds):         average {statistics.mean(times):.2f}, "
                       f"median {statistics.median(times):.2f}, 95th percentile {percentile(times, 95):.2f}")
     report.append(f"Tokens:                    {total_in} in, {total_out} out")
-    report.append(f"Cost:                      ${total_cost:.4f} total, ${total_cost / n:.5f} per request")
+    report.append(f"Cost:                      ${total_cost:.4f} total, ${total_cost / total_cases:.5f} per request")
+
+    if use_rag:
+        # How often the two RAG-only rules kicked in.
+        emergency_first = [row for row in rows
+                           if row["policies"].startswith(policy_search.EMERGENCY_POLICY)]
+        no_match = "no related office policy found"
+        report.append(f"Emergency policy first:    {len(emergency_first)} cases had a danger word")
+        report.append(f"No-related-policy flag:    "
+                      f"{sum(no_match in row['review_reason'] for row in unclear_cases)} of "
+                      f"{len(unclear_cases)} meaningless inputs, "
+                      f"{sum(no_match in row['review_reason'] for row in real_requests)} of "
+                      f"{len(real_requests)} real requests")
 
     # Per-set breakdown, so the original 50 can be compared with v1/v2.
     report.append("")
     report.append("=== By set ===")
-    for set_name in dict.fromkeys(r["set"] for r in rows):  # each set once, in file order
-        set_rows = [r for r in rows if r["set"] == set_name]
-        s_cat, s_urg, _ = accuracy(set_rows)
-        s_high, s_missed, s_over = emergency_stats(set_rows)
-        report.append(f"{set_name} ({len(set_rows)} cases): category {s_cat:.0%}, urgency {s_urg:.0%}, "
-                      f"emergencies caught {len(s_high) - len(s_missed)} of {len(s_high)}, "
-                      f"over-escalated {len(s_over)}")
+    set_names = dict.fromkeys(row["set"] for row in rows)  # each set name once, in file order
+    for set_name in set_names:
+        set_rows = [row for row in rows if row["set"] == set_name]
+        set_category, set_urgency, _ = accuracy(set_rows)
+        set_high, set_missed, set_over = emergency_stats(set_rows)
+        report.append(f"{set_name} ({len(set_rows)} cases): category {set_category:.0%}, "
+                      f"urgency {set_urgency:.0%}, emergencies caught "
+                      f"{len(set_high) - len(set_missed)} of {len(set_high)}, "
+                      f"over-escalated {len(set_over)}")
 
-    misses = [r for r in rows if not r["category_correct"] or r["urgency_correct"] is False]
+    misses = [row for row in rows if not row["category_correct"] or row["urgency_correct"] is False]
     if misses:
         report.append("")
         report.append("=== Misses (review each: is the AI wrong, or is your label debatable?) ===")
-        for r in misses:
-            report.append(f"#{r['id']}: \"{r['message']}\"")
-            report.append(f"    expected {r['expected_category']}/{r['expected_urgency'] or '-'}"
-                          f", got {r['category']}/{r['urgency']} - {r['reason'] or r['error']}")
+        for row in misses:
+            report.append(f"#{row['id']}: \"{row['message']}\"")
+            report.append(f"    expected {row['expected_category']}/{row['expected_urgency'] or '-'}"
+                          f", got {row['category']}/{row['urgency']} - {row['reason'] or row['error']}")
+            if row["policies"]:
+                report.append(f"    policies used: {row['policies']}")
+    return report
 
-    print("\n" + "\n".join(report))
 
-    # Save with a timestamp so no run ever overwrites an earlier one.
+def save_results(rows: list[dict], report: list[str], use_rag: bool) -> str:
+    """Save one CSV (a row per case) and one .txt (the summary).
+
+    The file name has a timestamp, so no run ever overwrites an earlier one,
+    and "_rag" when RAG was on, so before/after runs are easy to tell apart.
+    Returns the shared file name (without extension).
+    """
     office_helper.RESULTS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    base = office_helper.RESULTS_DIR / f"eval_{office_helper.PROMPT_VERSION}_{stamp}"
+    label = office_helper.PROMPT_VERSION + ("_rag" if use_rag else "")
+    base_path = office_helper.RESULTS_DIR / f"eval_{label}_{stamp}"
 
-    with open(f"{base}.csv", "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+    with open(f"{base_path}.csv", "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
-    with open(f"{base}.txt", "w", encoding="utf-8") as f:
-        f.write("\n".join(report) + "\n")
+    with open(f"{base_path}.txt", "w", encoding="utf-8") as text_file:
+        text_file.write("\n".join(report) + "\n")
+    return base_path.name
 
-    print(f"\nSaved results/{base.name}.csv and results/{base.name}.txt")
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Score the triage tool on the test cases.")
+    parser.add_argument("--rag", action="store_true",
+                        help="add the closest office policies to each prompt")
+    args = parser.parse_args(argv)
+
+    cases = office_helper.read_csv_rows(office_helper.DATA_DIR / CASES_FILE, REQUIRED_COLUMNS)
+    policy_index = office_helper.open_policies_if_requested(args.rag)
+    client = office_helper.make_client()
+
+    print(f"Prompt {office_helper.PROMPT_VERSION}, RAG {'on' if args.rag else 'off'}, "
+          f"model {office_helper.MODEL}, {len(cases)} cases\n")
+
+    rows = []
+    for case in cases:
+        row = score_case(case, client, policy_index)
+        rows.append(row)
+        print(f"[{case_mark(row):<11}] #{row['id']:>2} expected "
+              f"{row['expected_category']}/{row['expected_urgency'] or '-'}"
+              f"  got {row['category']}/{row['urgency']}")
+
+    report = build_report(rows, args.rag)
+    print("\n" + "\n".join(report))
+
+    file_name = save_results(rows, report, args.rag)
+    print(f"\nSaved results/{file_name}.csv and results/{file_name}.txt")
 
 
 if __name__ == "__main__":

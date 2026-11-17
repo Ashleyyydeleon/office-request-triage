@@ -1,0 +1,52 @@
+=== Results (all cases) ===
+Prompt version:            v4
+RAG:                       off
+Model:                     claude-haiku-4-5-20251001
+Cases:                     63  (data/eval_cases.csv)
+Category accuracy:         87%
+Urgency accuracy:          88%  (on 56 cases with an expected urgency)
+Emergencies caught:        18 of 20 high-urgency cases rated high  MISSED: #8, #16
+Over-escalated to high:    0 medium/low cases rated high
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 56 real requests wrongly sent to a human
+Flagged for human review:  7 of 63
+Errors:                    0
+Latency (seconds):         average 0.75, median 0.72, 95th percentile 0.94
+Tokens:                    28721 in, 2594 out
+Cost:                      $0.0417 total, $0.00066 per request
+
+=== By set ===
+original (50 cases): category 94%, urgency 84%, emergencies caught 9 of 11, over-escalated 0
+extra (13 cases): category 62%, urgency 100%, emergencies caught 9 of 9, over-escalated 0
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#8: "Someone is in Room Everest and won't leave and I booked it for 2pm"
+    expected Rooms & Desks/high, got Rooms & Desks/medium - Room is occupied past booking time, blocking scheduled use, but no safety risk or immediate emergency
+#16: "The mailroom has a refrigerated medical shipment that needs pickup today"
+    expected Deliveries/high, got Deliveries/medium - Time-sensitive medical shipment requiring same-day pickup, but not an immediate emergency
+#18: "I'm expecting a courier at 3pm. Who signs for it?"
+    expected Deliveries/medium, got Deliveries/low - Question about courier delivery procedures and signature protocols
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - Question about mailroom operating hours and schedule information
+#24: "A light is flickering in the hallway"
+    expected Facilities/low, got Facilities/medium - Flickering light is a facilities issue but not an immediate safety hazard; should be repaired within a day to prevent further degradation
+#26: "The elevator is stuck between floors with someone inside"
+    expected Facilities/high, got Safety & Security/high - Person trapped in elevator - immediate emergency requiring rescue response
+#33: "Someone left food in the fridge for weeks and it smells"
+    expected Kitchen/low, got Kitchen/medium - Spoiled food is a hygiene and health concern that should be cleaned up promptly, but no immediate safety risk
+#35: "The microwave sparked and smoke is coming out of it"
+    expected Kitchen/high, got Safety & Security/high - Active electrical hazard with smoke emission poses immediate fire risk to people and building
+#40: "I need a letter confirming my employment for a lease"
+    expected Other/medium, got Other/low - Employment verification letter is an HR/administrative request unrelated to office operations
+#43: "I lost my wallet somewhere on the 2nd floor"
+    expected Other/medium, got Other/low - Lost personal item requiring search assistance or lost-and-found inquiry
+#51: "The fire alarm is going off and I smell smoke on the 3rd floor"
+    expected Facilities/high, got Safety & Security/high - Active fire alarm with smoke detected - immediate emergency requiring evacuation and emergency response
+#55: "The toaster in the 5th floor kitchen is on fire"
+    expected Kitchen/high, got Safety & Security/high - Active fire is an immediate safety risk requiring emergency response
+#56: "A delivery box in the mailroom is leaking some kind of chemical"
+    expected Deliveries/high, got Safety & Security/high - Chemical leak is a potential hazard to people and the building
+#57: "Our guest is locked inside the visitor lobby and can't get out"
+    expected Visitors/high, got Safety & Security/high - Person is trapped and unable to exit; immediate assistance needed to free them
+#60: "Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?"
+    expected Facilities/low, got Other/low - informational question about scheduled fire drill procedures

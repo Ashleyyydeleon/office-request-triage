@@ -1,0 +1,42 @@
+=== Results (all cases) ===
+Prompt version:            v3
+RAG:                       on (top 2 policies added)
+Model:                     claude-haiku-4-5-20251001
+Cases:                     63  (data/eval_cases.csv)
+Category accuracy:         94%
+Urgency accuracy:          96%  (on 56 cases with an expected urgency)
+Emergencies caught:        20 of 20 high-urgency cases rated high
+Over-escalated to high:    0 medium/low cases rated high
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 56 real requests wrongly sent to a human
+Flagged for human review:  7 of 63
+Errors:                    0
+Latency (seconds):         average 1.48, median 0.84, 95th percentile 3.27
+Tokens:                    59680 in, 2878 out
+Cost:                      $0.0741 total, $0.00118 per request
+Emergency policy first:    15 cases had a danger word
+No-related-policy flag:    5 of 7 meaningless inputs, 0 of 56 real requests
+
+=== By set ===
+original (50 cases): category 98%, urgency 98%, emergencies caught 11 of 11, over-escalated 0
+extra (13 cases): category 77%, urgency 92%, emergencies caught 9 of 9, over-escalated 0
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#18: "I'm expecting a courier at 3pm. Who signs for it?"
+    expected Deliveries/medium, got Deliveries/low - Routine question about courier signature procedures during normal mailroom hours
+    policies used: mailroom_and_deliveries; visitors_and_front_desk
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - Question about mailroom hours; the schedule is posted on the workplace intranet page and at the mailroom door
+    policies used: office_hours_hr_and_general; mailroom_and_deliveries
+#57: "Our guest is locked inside the visitor lobby and can't get out"
+    expected Visitors/high, got Facilities/high - Person trapped in locked space; requires immediate security response and door unlock
+    policies used: emergencies_and_safety; visitors_and_front_desk
+#58: "Someone collapsed in the 3rd floor hallway and isn't responding"
+    expected Other/high, got Facilities/high - Medical emergency: person collapsed and unresponsive. Call 911 immediately, send someone to meet responders at entrance, bring nearest AED.
+    policies used: emergencies_and_safety; urgency_and_response_times
+#59: "There's a person without a badge walking desk to desk on 6 asking for laptops"
+    expected Other/high, got Facilities/high - Security threat: unknown person without a badge in the office. Do not confront; call security immediately with description and location.
+    policies used: emergencies_and_safety; it_and_equipment
+#61: "The exit sign above the east stairwell door has a burnt-out bulb"
+    expected Facilities/medium, got Facilities/low - Failed exit-sign light is a small fix that must be replaced within one business day for safety compliance, but it is not an active emergency
+    policies used: building_and_facilities; emergencies_and_safety

@@ -26,7 +26,7 @@ id,message,expected_category,expected_urgency,set
 25,There's a strong smell of gas near the loading dock,Facilities,high,original
 26,The elevator is stuck between floors with someone inside,Facilities,high,original
 27,The restroom on 2 is out of paper towels,Facilities,low,original
-28,Someone slipped on the wet floor by the entrance,Facilities,high,original
+28,Someone slipped on the wet floor by the entrance,Safety & Security,high,original
 29,The badge reader on the server room door is not working,Facilities,medium,original
 30,Fire alarm testing is super loud. Is it happening all week?,Facilities,low,original
 31,We're out of oat milk in the 4th floor kitchen,Kitchen,low,original
@@ -56,8 +56,8 @@ id,message,expected_category,expected_urgency,set
 55,The toaster in the 5th floor kitchen is on fire,Kitchen,high,extra
 56,A delivery box in the mailroom is leaking some kind of chemical,Deliveries,high,extra
 57,Our guest is locked inside the visitor lobby and can't get out,Visitors,high,extra
-58,Someone collapsed in the 3rd floor hallway and isn't responding,Other,high,extra
-59,There's a person without a badge walking desk to desk on 6 asking for laptops,Other,high,extra
+58,Someone collapsed in the 3rd floor hallway and isn't responding,Safety & Security,high,extra
+59,There's a person without a badge walking desk to desk on 6 asking for laptops,Safety & Security,high,extra
 60,Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?,Facilities,low,extra
 61,The exit sign above the east stairwell door has a burnt-out bulb,Facilities,medium,extra
 62,Is there a first aid kit on the 5th floor?,Facilities,low,extra

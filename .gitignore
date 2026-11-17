@@ -3,3 +3,7 @@ envoy_env/
 __pycache__/
 .DS_Store
 .env
+
+# Rebuildable: run python policy_search.py
+chroma_db/
+models/
