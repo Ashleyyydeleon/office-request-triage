@@ -15,9 +15,14 @@ chroma_db/          ChromaDB index, rebuilt by `python policy_search.py` (not sh
 models/             local embedding model, downloaded on first build (not shared)
 data/
   requests.csv      sample requests the tool triages
-  eval_cases.csv    63 hand-labeled test cases (my ground truth); the "set" column
-                    marks the first 50 as "original" and 13 later ones as "extra"
-                    (emergency types + urgent-sounding non-emergencies)
+  eval_cases.csv    78 hand-labeled test cases (my ground truth); the "set" column
+                    marks the first 50 as "original", 13 later ones as "extra"
+                    (emergency types + urgent-sounding non-emergencies), and 15
+                    as "holdout" (written by me and a friend after the prompt
+                    and policies were finished, labeled by hand by me before
+                    the first run; never used for tuning). A category written
+                    "A|B" means either answer counts as correct.
+  LABEL_CHANGES.md  every relabeled case and the holdout labels, with reasons
 results/            everything the scripts write; eval runs are timestamped
 requirements.txt    Python packages
 envoy_env/          virtual environment (not shared)
@@ -55,8 +60,8 @@ the 2 closest policies to each prompt. RAG eval runs are saved as
 
 ## What is built and tested
 
-- LLM classification into 8 categories (incl. "Safety & Security" for
-  emergencies involving people, and "Unclear") and 3 urgency levels, as JSON
+- LLM classification into 9 categories (incl. "Safety & Security" for every
+  emergency, "IT & Equipment", and "Unclear") and 3 urgency levels, as JSON
 - Guardrail / human in the loop: invalid or "Unclear" answers, failed calls, and
   (with RAG) messages with no related policy are marked `needs_review`, with the
   reasons in a `review_reason` column
@@ -85,11 +90,30 @@ the 2 closest policies to each prompt. RAG eval runs are saved as
 - No-related-policy flag: if even the closest policy is further than 0.85
   (cosine distance), a human reviews the request whatever the AI said. On the
   test cases it flags 5 of 7 nonsense inputs and 0 of 56 real requests; the
-  threshold was set on these same cases and the margins are small.
-- All of the above tested offline with a fake AI client (27 checks: prompt
+  threshold was set on these same cases and the margins are small. On the
+  holdout set it also flags "I forgot my password." (#72, distance 0.876), so
+  the threshold does not fully carry over to new requests. It was left at 0.85
+  because the holdout set is not used for tuning; the cost is one extra
+  human check.
+- All of the above tested offline with a fake AI client (29 checks: prompt
   contents and order, saved files, flags, bad replies, missing files, missing
   index), then run against the real API (results below).
-- The code currently runs prompt v4; v3 scored higher on category (see below).
+- The code currently runs prompt v5; best results come with `--rag` (see below).
+
+## Project journey
+
+Each step was measured on the same hand-labeled cases before moving on.
+Label changes are logged in `data/LABEL_CHANGES.md`.
+
+| Step | What changed | Why | What the eval showed |
+|---|---|---|---|
+| v1 | Basic prompt + "Unclear" rule | Baseline | 88% category, but 5 real requests wrongly called Unclear |
+| v2 | Category descriptions, narrower Unclear | Fix v1's false Unclears | 96% category, 0 false Unclear; urgency still too high (67%) |
+| v3 | Emergency examples, tie-breakers | Calibrate urgency without missing emergencies | Urgency 86% (original 50), but 2 emergencies slipped to medium |
+| v3 + RAG | 9 policy docs, ChromaDB, safety-first retrieval | Ground answers in office rules | Urgency 96%, 20 / 20 emergencies, at 2x cost |
+| v4 | New Safety & Security category (people emergencies) | Collapsed person / intruder fit no team | Category fell to 87% (81% with RAG): AI also sent fires and gas there |
+| v5 | Every emergency in the emergency policy -> Safety & Security; new IT & Equipment category | One clear rule the policy, prompt and labels share; IT requests found while labeling the holdout set | With RAG: category back to 92% on the 63 tuning cases (from 81% in v4), urgency 95%, 20 / 20 emergencies |
+| Holdout | 15 new requests by me and a friend, labeled by hand | A fair test on requests the prompt was never tuned on | RAG raised urgency from 73% to 87% and high-urgency catches from 4 / 6 to 5 / 6; category 93% -> 87% |
 
 ## Results so far
 
@@ -155,9 +179,52 @@ What v4 changed (an honest regression in category accuracy):
   No case was harmed in the way that matters most (missing an emergency).
 - Latency was normal in both runs (95th percentile about 1 s), which supports
   that the slow calls in the v3 + RAG run were API-side.
-- Open decision for v5: send every emergency to Safety & Security (and relabel),
-  make the "team that owns the space" rule stronger, or go back to v3's
-  categories.
+- Chosen fix (v5): send every emergency to Safety & Security and relabel 9
+  cases to match (see `data/LABEL_CHANGES.md`, including the caveat that most
+  new labels match what the AI already answered).
+
+v5 (every emergency -> Safety & Security, plus IT & Equipment), 78 cases:
+
+| | Set | Category | Urgency | Emergencies caught | Over-escalated to high | Cost / request |
+|---|---|---|---|---|---|---|
+| v5 | original + extra (63) | 86% | 86% | 17 / 20 | 0 | $0.00076 |
+| v5 | holdout (15) | 93% | 73% | 4 / 6 | 1 | |
+| v5 + RAG | original + extra (63) | 92% | 95% | 20 / 20 | 0 | $0.00135 |
+| v5 + RAG | holdout (15) | 87% | 87% | 5 / 6 | 1 | |
+
+All 78 cases: v5 87% category, 83% urgency, 21 / 26 high-urgency caught;
+v5 + RAG 91% category, 93% urgency, 25 / 26 caught. Median latency 0.74 s
+without RAG, 0.82 s with RAG. Cost per request is for all 78 cases. The 63-case
+numbers are counted from the eval's per-set lines and per-case marks.
+
+What v5 and the holdout set showed (run 2026-11-18):
+- The v5 rule fixed v4's regression on the tuning cases: with RAG, category
+  went from 81% to 92% and every emergency was still caught. Part of this
+  comes from the v5 relabels (see `data/LABEL_CHANGES.md`).
+- On the holdout set, written after all tuning, RAG mainly helped urgency
+  (73% -> 87%) and caught one more high-urgency request (Wi-Fi down for a
+  floor, #68, which the IT policy calls high). Every safety emergency in the
+  holdout set (#65 disruptive visitor, #71 possible gunman, #75 stuck
+  elevator) was caught with and without RAG.
+- RAG cost one holdout category point: "The mailroom is locked." (#73) went
+  to Facilities instead of Deliveries.
+- #67 (one computer won't turn on) was rated medium in both runs. The written
+  IT policy says one person's laptop is medium; the owner's label says high.
+  This is the known policy-vs-owner disagreement, not a model error.
+- #77 (lost visitor roaming the halls) was over-escalated to Safety &
+  Security / high in both runs. The visitor policy says "report anyone without
+  a badge or escort to security", which supports the AI's reading; the owner
+  labeled it Visitors / medium because nothing suggests a threat.
+- #76 ("Can we smoke on the patio?") triggered the danger word "smoke", so
+  the emergency policy was sent first, but the AI still answered Other / low:
+  the keyword rule did no harm here.
+- "I forgot my password." (#72) was answered correctly but also sent to a
+  human by the no-related-policy flag (8 of 78 flagged instead of 7).
+- The holdout set is small: each case moves its scores by about 7 points.
+
+Still missed with RAG on the tuning cases: #8 (someone in a booked room ->
+Safety & Security), #54 (doors won't unlock -> Safety & Security), #60, #62
+(fire drill and first aid kit questions -> Other), and #18, #19, #43, #61.
 
 Prompt changes are described next to `PROMPT_VERSION` in `office_helper.py`.
 v1 details: `results/baseline_prompt_v1_2026-11-04.txt`; v2 and later: `results/eval_v*.txt`.

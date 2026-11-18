@@ -1,0 +1,58 @@
+=== Results (all cases) ===
+Prompt version:            v5
+RAG:                       on (top 2 policies added)
+Model:                     claude-haiku-4-5-20251001
+Cases:                     78  (data/eval_cases.csv)
+Category accuracy:         91%
+Urgency accuracy:          93%  (on 71 cases with an expected urgency)
+Emergencies caught:        25 of 26 high-urgency cases rated high  MISSED: #67
+Over-escalated to high:    1 medium/low cases rated high  (#77)
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 71 real requests wrongly sent to a human
+Flagged for human review:  8 of 78
+Errors:                    0
+Latency (seconds):         average 0.85, median 0.82, 95th percentile 1.05
+Tokens:                    86659 in, 3767 out
+Cost:                      $0.1055 total, $0.00135 per request
+Danger word found:         17 cases (emergency policy sent first): #22, #25, #26, #28, #30, #35, #50, #51, #52, #55, #56, #57, #58, #59, #60, #71, #76
+No-related-policy flag:    5 of 7 meaningless inputs, 1 of 71 real requests (#72)
+
+=== By set ===
+original (50 cases): category 96%, urgency 95%, emergencies caught 11 of 11, over-escalated 0
+extra (13 cases): category 77%, urgency 92%, emergencies caught 9 of 9, over-escalated 0
+holdout (15 cases): category 87%, urgency 87%, emergencies caught 5 of 6, over-escalated 1
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#8: "Someone is in Room Everest and won't leave and I booked it for 2pm"
+    expected Rooms & Desks/high, got Safety & Security/high - Someone is refusing to leave an occupied room, which is a potential security threat or confrontation situation requiring immediate intervention
+    policies used: rooms_and_desks; emergencies_and_safety
+#18: "I'm expecting a courier at 3pm. Who signs for it?"
+    expected Deliveries/medium, got Deliveries/low - Question about courier signature procedure during normal mailroom hours; no time-sensitive items or blocking issue mentioned
+    policies used: mailroom_and_deliveries; visitors_and_front_desk
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - Question about mailroom hours; user should check the workplace intranet page or the mailroom door where hours are posted
+    policies used: office_hours_hr_and_general; mailroom_and_deliveries
+#43: "I lost my wallet somewhere on the 2nd floor"
+    expected Other/medium, got Other/low - Lost item request; not a workplace service or facility issue
+    policies used: mailroom_and_deliveries; kitchen_and_pantry
+#54: "The main entrance doors won't unlock and nobody can get into the building"
+    expected Facilities/high, got Safety & Security/high - People are blocked from entering the building; this is an access emergency that creates a safety risk and blocks work. Call security immediately.
+    policies used: building_and_facilities; emergencies_and_safety
+#60: "Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?"
+    expected Facilities/low, got Other/low - Scheduled fire drill announcement and question about procedure; not an emergency
+    policies used: emergencies_and_safety; building_and_facilities
+#61: "The exit sign above the east stairwell door has a burnt-out bulb"
+    expected Facilities/medium, got Facilities/low - Burnt-out exit sign light is a small fix that must be replaced within one business day for safety compliance, but it is not an emergency and does not block people or pose immediate risk
+    policies used: building_and_facilities; emergencies_and_safety
+#62: "Is there a first aid kit on the 5th floor?"
+    expected Facilities/low, got Other/low - Question about the location of safety equipment; first aid kits are in every kitchen and next to every stairwell per policy
+    policies used: building_and_facilities; emergencies_and_safety
+#67: "My computer won't turn back on."
+    expected IT & Equipment/high, got IT & Equipment/medium - One person's laptop not working blocks their work but is not a safety risk or affecting multiple people
+    policies used: it_and_equipment; kitchen_and_pantry
+#73: "The mailroom is locked."
+    expected Deliveries/medium, got Facilities/medium - The mailroom being locked prevents access to packages and mail, blocking work but not creating immediate safety risk. Needs prompt attention within hours to restore access.
+    policies used: mailroom_and_deliveries; rooms_and_desks
+#77: "A lost visitor is roaming the halls."
+    expected Visitors/medium, got Safety & Security/high - An unescorted visitor without a badge is a security threat and must be reported immediately
+    policies used: rooms_and_desks; visitors_and_front_desk

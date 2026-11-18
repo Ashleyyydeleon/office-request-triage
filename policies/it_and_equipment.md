@@ -1,9 +1,9 @@
 # IT and equipment
 
 The IT help desk owns laptops, accounts and passwords, Wi-Fi, printers and software.
-The workplace team forwards IT requests to the help desk and logs them under Other,
-except desk and meeting room equipment (see the rooms and desks policy) and visitor
-kiosks (see the visitors policy).
+The workplace team logs IT requests under IT & Equipment and forwards them to the
+help desk, except desk and meeting room equipment (see the rooms and desks policy)
+and visitor kiosks (see the visitors policy).
 
 - Wi-Fi or network down for a whole floor or office: high, because people are
   blocked.

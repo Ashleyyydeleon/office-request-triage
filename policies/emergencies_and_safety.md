@@ -20,7 +20,7 @@ security desk first, then file a request so the workplace team can follow up.
 Not emergencies: scheduled fire drills, announced alarm tests, and questions about
 safety equipment. These are low urgency.
 
-Routing after the emergency call: medical emergencies, injuries and security
-threats involving people go to the Safety & Security team. Building hazards (fire,
-gas, leaks, flooding, chemicals) go to the team that owns the space, for example
-Facilities, Kitchen or the mailroom.
+Routing after the emergency call: every emergency listed above goes to the Safety
+& Security team, wherever it happens (a kitchen fire, a mailroom chemical leak, a
+person trapped in an elevator). The team that owns the space (Facilities, Kitchen,
+the mailroom) follows up on repairs afterwards.

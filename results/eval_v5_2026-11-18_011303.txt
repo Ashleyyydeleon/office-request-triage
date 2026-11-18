@@ -1,0 +1,63 @@
+=== Results (all cases) ===
+Prompt version:            v5
+RAG:                       off
+Model:                     claude-haiku-4-5-20251001
+Cases:                     78  (data/eval_cases.csv)
+Category accuracy:         87%
+Urgency accuracy:          83%  (on 71 cases with an expected urgency)
+Emergencies caught:        21 of 26 high-urgency cases rated high  MISSED: #3, #8, #16, #67, #68
+Over-escalated to high:    1 medium/low cases rated high  (#77)
+Unclear caught:            7 of 7 meaningless inputs sent to a human
+False 'Unclear':           0 of 71 real requests wrongly sent to a human
+Flagged for human review:  7 of 78
+Errors:                    0
+Latency (seconds):         average 0.75, median 0.74, 95th percentile 0.88
+Tokens:                    42813 in, 3247 out
+Cost:                      $0.0590 total, $0.00076 per request
+
+=== By set ===
+original (50 cases): category 90%, urgency 81%, emergencies caught 8 of 11, over-escalated 0
+extra (13 cases): category 69%, urgency 100%, emergencies caught 9 of 9, over-escalated 0
+holdout (15 cases): category 93%, urgency 73%, emergencies caught 4 of 6, over-escalated 1
+
+=== Misses (review each: is the AI wrong, or is your label debatable?) ===
+#3: "Our client has been waiting 20 minutes and nobody told me they arrived"
+    expected Visitors/high, got Visitors/medium - Client waiting unattended - affects business relationship and should be resolved immediately but no safety risk
+#8: "Someone is in Room Everest and won't leave and I booked it for 2pm"
+    expected Rooms & Desks/high, got Other/medium - Room occupancy dispute that needs resolution but no immediate safety threat
+#16: "The mailroom has a refrigerated medical shipment that needs pickup today"
+    expected Deliveries/high, got Deliveries/medium - Time-sensitive medical shipment requiring same-day pickup to prevent spoilage, but no immediate safety risk
+#18: "I'm expecting a courier at 3pm. Who signs for it?"
+    expected Deliveries/medium, got Deliveries/low - Question about courier delivery procedures and signing requirements
+#19: "The mailroom hours seem to have changed. Where is the new schedule?"
+    expected Deliveries/low, got Other/low - Question about mailroom operating hours and schedule information
+#22: "There's water leaking from the ceiling near the east stairwell"
+    expected Safety & Security/high, got Facilities/high - Water leaking from ceiling is a potential safety hazard that could cause structural damage, electrical hazards, or injury to people below
+#24: "A light is flickering in the hallway"
+    expected Facilities/low, got Facilities/medium - Flickering light is a facilities issue but not an immediate safety risk unless it indicates electrical problems; should be inspected and fixed within a day
+#30: "Fire alarm testing is super loud. Is it happening all week?"
+    expected Facilities/low, got Other/low - Question about scheduled fire alarm testing, not an emergency or safety risk
+#33: "Someone left food in the fridge for weeks and it smells"
+    expected Kitchen/low, got Kitchen/medium - Old food creating odor affects kitchen usability and environment, but no immediate safety risk
+#37: "The kitchen sink is clogged"
+    expected Kitchen/medium, got Facilities/medium - Kitchen sink malfunction affects work but is not an immediate safety risk
+#40: "I need a letter confirming my employment for a lease"
+    expected Other/medium, got Other/low - Employment verification letter is an HR/administrative request unrelated to workspace operations
+#43: "I lost my wallet somewhere on the 2nd floor"
+    expected Other/medium, got Other/low - Lost personal item requiring general assistance
+#53: "The power just went out on the whole 4th floor"
+    expected Facilities/high, got Safety & Security/high - Power outage on entire floor is a safety risk: elevators may be affected, emergency lighting may be needed, and people could be trapped or at risk
+#54: "The main entrance doors won't unlock and nobody can get into the building"
+    expected Facilities/high, got Safety & Security/high - people are blocked from entering the building due to locked entrance doors
+#60: "Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?"
+    expected Facilities/low, got Other/low - Question about a scheduled fire drill procedure, not an emergency
+#62: "Is there a first aid kit on the 5th floor?"
+    expected Facilities/low, got Safety & Security/low - Question about location of safety equipment, not an active emergency
+#64: "Someone has spilled milk in the kitchen"
+    expected Kitchen/low, got Kitchen/medium - Spilled milk needs cleanup to maintain kitchen hygiene and prevent slip hazards, but no immediate safety emergency
+#67: "My computer won't turn back on."
+    expected IT & Equipment/high, got IT & Equipment/medium - computer not functioning blocks work, but not an immediate safety risk
+#68: "Our wifi is down on the second floor."
+    expected IT & Equipment/high, got IT & Equipment/medium - Wi-Fi outage affects work productivity but is not an immediate safety risk
+#77: "A lost visitor is roaming the halls."
+    expected Visitors/medium, got Safety & Security/high - Unknown person without a badge in the building poses a security risk and potential safety concern

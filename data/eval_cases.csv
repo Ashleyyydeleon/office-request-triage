@@ -20,11 +20,11 @@ id,message,expected_category,expected_urgency,set
 19,The mailroom hours seem to have changed. Where is the new schedule?,Deliveries,low,original
 20,A package arrived for someone who left the company last month,Deliveries,low,original
 21,I'm returning an online order. Where do I drop it off?,Deliveries,low,original
-22,There's water leaking from the ceiling near the east stairwell,Facilities,high,original
+22,There's water leaking from the ceiling near the east stairwell,Safety & Security,high,original
 23,The 5th floor thermostat is stuck at 85 degrees,Facilities,medium,original
 24,A light is flickering in the hallway,Facilities,low,original
-25,There's a strong smell of gas near the loading dock,Facilities,high,original
-26,The elevator is stuck between floors with someone inside,Facilities,high,original
+25,There's a strong smell of gas near the loading dock,Safety & Security,high,original
+26,The elevator is stuck between floors with someone inside,Safety & Security,high,original
 27,The restroom on 2 is out of paper towels,Facilities,low,original
 28,Someone slipped on the wet floor by the entrance,Safety & Security,high,original
 29,The badge reader on the server room door is not working,Facilities,medium,original
@@ -33,7 +33,7 @@ id,message,expected_category,expected_urgency,set
 32,The coffee machine on 3 is broken,Kitchen,low,original
 33,Someone left food in the fridge for weeks and it smells,Kitchen,low,original
 34,Can we get allergy-friendly snacks for Friday's all-hands?,Kitchen,low,original
-35,The microwave sparked and smoke is coming out of it,Kitchen,high,original
+35,The microwave sparked and smoke is coming out of it,Safety & Security,high,original
 36,Can we get a second kettle on the 6th floor?,Kitchen,low,original
 37,The kitchen sink is clogged,Kitchen,medium,original
 38,When is the next all-hands meeting?,Other,low,original
@@ -49,16 +49,31 @@ id,message,expected_category,expected_urgency,set
 48,Hi,Unclear,,original
 49,can u fix it,Unclear,,original
 50,I had a dream the kitchen was on fire lol,Unclear,,original
-51,The fire alarm is going off and I smell smoke on the 3rd floor,Facilities,high,extra
-52,Water is pouring out of the 2nd floor restroom and flooding the hallway,Facilities,high,extra
+51,The fire alarm is going off and I smell smoke on the 3rd floor,Safety & Security,high,extra
+52,Water is pouring out of the 2nd floor restroom and flooding the hallway,Safety & Security,high,extra
 53,The power just went out on the whole 4th floor,Facilities,high,extra
 54,The main entrance doors won't unlock and nobody can get into the building,Facilities,high,extra
-55,The toaster in the 5th floor kitchen is on fire,Kitchen,high,extra
-56,A delivery box in the mailroom is leaking some kind of chemical,Deliveries,high,extra
-57,Our guest is locked inside the visitor lobby and can't get out,Visitors,high,extra
+55,The toaster in the 5th floor kitchen is on fire,Safety & Security,high,extra
+56,A delivery box in the mailroom is leaking some kind of chemical,Safety & Security,high,extra
+57,Our guest is locked inside the visitor lobby and can't get out,Safety & Security,high,extra
 58,Someone collapsed in the 3rd floor hallway and isn't responding,Safety & Security,high,extra
 59,There's a person without a badge walking desk to desk on 6 asking for laptops,Safety & Security,high,extra
 60,Reminder: fire drill next Tuesday at 10am. Do we need to leave the building?,Facilities,low,extra
 61,The exit sign above the east stairwell door has a burnt-out bulb,Facilities,medium,extra
 62,Is there a first aid kit on the 5th floor?,Facilities,low,extra
 63,URGENT!!! we're out of sparkling water,Kitchen,low,extra
+64,Someone has spilled milk in the kitchen,Kitchen,low,holdout
+65,"There is a visitor who claims to have an involvement with an employee; they are now in our waiting areas, causing chaos and a ruckus.",Safety & Security,high,holdout
+66,There is a spill in the lobby. We can't find the wet floor sign.,Facilities,high,holdout
+67,My computer won't turn back on.,IT & Equipment,high,holdout
+68,Our wifi is down on the second floor.,IT & Equipment,high,holdout
+69,The fridge smells foul; who do we contact to clean it?,Kitchen,low,holdout
+70,The toilet is clogged in the lobby.,Facilities,medium,holdout
+71,"There is a threat of an emergency, maybe a gunman, in the neighboring office; should we do anything?",Safety & Security,high,holdout
+72,I forgot my password.,IT & Equipment,medium,holdout
+73,The mailroom is locked.,Deliveries,medium,holdout
+74,The offices are too cold.,Facilities,medium,holdout
+75,The elevator is stuck; I'm not sure if anyone is inside.,Safety & Security|Facilities,high,holdout
+76,Can we smoke on the office outdoor patio?,Other,low,holdout
+77,A lost visitor is roaming the halls.,Visitors,medium,holdout
+78,Our coffee machine is broken.,Kitchen,low,holdout

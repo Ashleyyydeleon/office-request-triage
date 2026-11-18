@@ -47,7 +47,7 @@ RESULTS_DIR = PROJECT_DIR / "results"  # outputs written by the scripts
 
 # The only answers we accept. Anything else is flagged for a human.
 CATEGORIES = ["Visitors", "Rooms & Desks", "Deliveries", "Facilities", "Kitchen",
-              "Safety & Security", "Other", "Unclear"]
+              "IT & Equipment", "Safety & Security", "Other", "Unclear"]
 URGENCIES = ["high", "medium", "low"]
 
 MODEL = "claude-haiku-4-5-20251001"  # small, fast, cheap model
@@ -71,7 +71,14 @@ NO_MATCH_DISTANCE = 0.85
 #   v4: new "Safety & Security" category for emergencies involving PEOPLE
 #       (medical, injuries, security threats); building hazards stay with the
 #       team that owns the space. Test cases #28, #58, #59 relabeled to match.
-PROMPT_VERSION = "v4"
+#       (87% category, 88% urgency; with RAG 81%, 95%: the AI sent fires, gas
+#       and trapped people to Safety & Security anyway, against the rule)
+#   v5: every emergency listed in the emergency policy goes to Safety & Security,
+#       wherever it happens; "safety hazards" removed from Facilities. 9 more
+#       cases relabeled (see data/LABEL_CHANGES.md). Also a new "IT & Equipment"
+#       category (laptops, accounts, Wi-Fi), requested while labeling the
+#       holdout set; IT problems were previously part of "Other".
+PROMPT_VERSION = "v5"
 
 # Everything the model needs to know must be INSIDE these strings;
 # code comments are never sent to the model.
@@ -82,10 +89,11 @@ Pick exactly one category:
 - Visitors: guests, visitor registration, front-desk check-in, visitor kiosks and forms
 - Rooms & Desks: meeting rooms, desk bookings, room equipment, seating
 - Deliveries: packages, mail, couriers, returns, the mailroom
-- Facilities: the building itself: leaks, heating and cooling, lights, elevators, restrooms, doors, badge readers, safety hazards
+- Facilities: the building itself: leaks, heating and cooling, lights, elevators, restrooms, doors, badge readers, safety equipment
 - Kitchen: food, drinks, snacks, kitchen appliances, kitchen cleanliness
-- Safety & Security: emergencies involving people: someone collapsed, hurt or injured, intruders or unknown people without a badge, theft, threats. Building hazards like fire, gas or leaks go to the team that owns the space.
-- Other: any real workplace question or request that fits none of the above (policies, HR letters, office hours, events, lost items, IT problems)
+- IT & Equipment: computers and laptops, accounts and passwords, Wi-Fi and network, printers, software. Desk monitors and meeting room screens belong to Rooms & Desks.
+- Safety & Security: any emergency where people may be in danger right now, wherever it happens: fire or smoke (even a small appliance fire), a gas smell, flooding or water coming through ceilings, someone hurt, collapsed or trapped (including in an elevator or a locked room), intruders or unknown people without a badge, theft, threats, or a hazardous chemical. Scheduled drills, alarm tests and questions about safety equipment are not emergencies: use the team that owns them.
+- Other: any real workplace question or request that fits none of the above (policies, HR letters, office hours, events, lost items)
 - Unclear: ONLY when you cannot tell what the person wants (random characters, "test", a bare greeting, a joke). If the message is a real question or problem, never use Unclear: use the closest category, or Other.
 
 Pick exactly one urgency:

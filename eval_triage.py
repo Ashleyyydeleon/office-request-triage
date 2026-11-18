@@ -10,6 +10,7 @@ What it does:
 
 Input:   data/eval_cases.csv
          columns: id, message, expected_category, expected_urgency, set
+         (expected_category may list two acceptable answers as "A|B")
 Output:  two NEW files in results/ per run (old runs are never overwritten):
              eval_<version>_<date>_<time>.csv       one row per case (RAG off)
              eval_<version>_rag_<date>_<time>.csv   one row per case (RAG on)
@@ -43,6 +44,9 @@ import policy_search  # only for the name of the emergency policy, in the report
 #   original  the first 50 cases (v1 and v2 were scored on these)
 #   extra     13 cases added with v3: more emergency types, plus messages
 #             that SOUND urgent but aren't
+#   holdout   15 cases written by other people after the prompt and policies
+#             were finished. Never use them to tune the prompt: they are the
+#             fair test of how the tool does on requests it hasn't "seen".
 CASES_FILE = "eval_cases.csv"
 REQUIRED_COLUMNS = ["id", "message", "expected_category", "expected_urgency", "set"]
 
@@ -128,6 +132,9 @@ def score_case(case: dict, client: anthropic.Anthropic,
     reasons = [error] if error else office_helper.review_reasons(answer, policies)
     expected_category = case["expected_category"]
     expected_urgency = case["expected_urgency"]
+    # Some cases have two acceptable categories, written "A|B" in the CSV
+    # (e.g. a stuck elevator: Safety & Security|Facilities). Either one counts.
+    accepted_categories = expected_category.split("|")
 
     return {
         "set": case["set"],
@@ -139,7 +146,7 @@ def score_case(case: dict, client: anthropic.Anthropic,
         "urgency": urgency,
         "reason": answer.get("reason", ""),
         "policies": office_helper.policy_names(policies),
-        "category_correct": category == expected_category,
+        "category_correct": category in accepted_categories,
         # Urgency is only scored when the case has an expected urgency ("" = not scored).
         "urgency_correct": (urgency == expected_urgency) if expected_urgency else "",
         "flagged_for_human": bool(reasons),
@@ -211,15 +218,16 @@ def build_report(rows: list[dict], use_rag: bool) -> list[str]:
 
     if use_rag:
         # How often the two RAG-only rules kicked in.
-        emergency_first = [row for row in rows
-                           if row["policies"].startswith(policy_search.EMERGENCY_POLICY)]
+        danger_ids = ["#" + row["id"] for row in rows if policy_search.mentions_danger(row["message"])]
         no_match = "no related office policy found"
-        report.append(f"Emergency policy first:    {len(emergency_first)} cases had a danger word")
+        flagged_real_ids = ["#" + row["id"] for row in real_requests if no_match in row["review_reason"]]
+        report.append(f"Danger word found:         {len(danger_ids)} cases (emergency policy sent first): "
+                      + ", ".join(danger_ids))
         report.append(f"No-related-policy flag:    "
                       f"{sum(no_match in row['review_reason'] for row in unclear_cases)} of "
                       f"{len(unclear_cases)} meaningless inputs, "
-                      f"{sum(no_match in row['review_reason'] for row in real_requests)} of "
-                      f"{len(real_requests)} real requests")
+                      f"{len(flagged_real_ids)} of {len(real_requests)} real requests"
+                      + (f" ({', '.join(flagged_real_ids)})" if flagged_real_ids else ""))
 
     # Per-set breakdown, so the original 50 can be compared with v1/v2.
     report.append("")
